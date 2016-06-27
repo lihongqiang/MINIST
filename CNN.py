@@ -47,8 +47,8 @@ num_hidens = 64
 with graph.as_default():
 
     # Input data
-    tf_train_dataset = tf.placeholder(tf.float32, (batch_size, image_sizes, image_sizes, num_channels))
-    tf_tarin_label = tf.placeholder(tf.float32, (batch_size, num_labels))
+    tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, image_sizes, image_sizes, num_channels))
+    tf_tarin_label = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
     tf_valid_dataset = tf.constant(valid_dataset)
     tf_test_dataset = tf.constant(test_dataset)
 
@@ -56,17 +56,17 @@ with graph.as_default():
     layer1_weights = tf.Variable(tf.truncated_normal([patch_size, patch_size, num_channels, depth], stddev=0.1))
     layer1_biases = tf.Variable(tf.zeros([depth]))
     layer2_weights = tf.Variable(tf.truncated_normal([patch_size, patch_size, depth, depth], stddev=0.1))
-    layer2_biases = tf.Variable(tf.ones([depth]))
+    layer2_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
     layer3_weights = tf.Variable(tf.truncated_normal([image_sizes // 4 * image_sizes // 4 * depth, num_hidens], stddev=0.1))
-    layer3_biases = tf.Variable(tf.ones([num_hidens]))
+    layer3_biases = tf.Variable(tf.constant(1.0, shape=[num_hidens]))
     layer4_weights = tf.Variable(tf.truncated_normal([num_hidens, num_labels], stddev=0.1))
-    layer4_biases = tf.Variable(tf.ones([num_labels]))
+    layer4_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
 
     # Model
     def model(data):
-        conv = tf.nn.conv2d(data, layer1_weights, [1, 2, 2, 1], 'SAME')
+        conv = tf.nn.conv2d(data, layer1_weights, [1, 2, 2, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer1_biases)
-        conv = tf.nn.conv2d(hidden, layer2_weights, [1, 2, 2, 1], 'SAME')
+        conv = tf.nn.conv2d(hidden, layer2_weights, [1, 2, 2, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer2_biases)
         shape = hidden.get_shape().as_list()
         reshape = tf.reshape(hidden, [shape[0], shape[1]*shape[2]*shape[3]])
@@ -74,16 +74,16 @@ with graph.as_default():
         return tf.matmul(hidden, layer4_weights) + layer4_biases
 
     # Training
-    logits = model(train_dataset)
-    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits, train_labels))
+    logits = model(tf_train_dataset)
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits, tf_tarin_label))
 
     # Optimizer
     optimizer = tf.train.GradientDescentOptimizer(0.05).minimize(loss)
 
     # Predictions
     train_prediction = tf.nn.softmax(logits)
-    valid_prediction = tf.nn.softmax(model(valid_dataset))
-    test_prediction = tf.nn.softmax(model(test_dataset))
+    valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
+    test_prediction = tf.nn.softmax(model(tf_test_dataset))
 
 num_steps = 1001
 
@@ -99,7 +99,7 @@ with tf.Session(graph=graph) as session:
             tf_tarin_label:batch_labels
         }
         _, l, predictions = session.run([optimizer, loss, train_prediction], feed_dict=feed_dict)
-        if (step % 50 == 0 ):
+        if (step % 100 == 0 ):
             print('Minibatch loss at step %d: %f' % (step, l))
             print('Minibatch accuracy: %.1f%%' % accuracy(predictions, batch_labels))
             print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
