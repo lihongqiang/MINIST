@@ -44,6 +44,10 @@ depth = 16
 batch_size = 16
 patch_size = 5
 num_hidens = 64
+
+pooling_size = 2
+pooling_stride =2
+
 with graph.as_default():
 
     # Input data
@@ -55,8 +59,10 @@ with graph.as_default():
     # Variables
     layer1_weights = tf.Variable(tf.truncated_normal([patch_size, patch_size, num_channels, depth], stddev=0.1))
     layer1_biases = tf.Variable(tf.zeros([depth]))
+
     layer2_weights = tf.Variable(tf.truncated_normal([patch_size, patch_size, depth, depth], stddev=0.1))
     layer2_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
+
     layer3_weights = tf.Variable(tf.truncated_normal([image_sizes // 4 * image_sizes // 4 * depth, num_hidens], stddev=0.1))
     layer3_biases = tf.Variable(tf.constant(1.0, shape=[num_hidens]))
     layer4_weights = tf.Variable(tf.truncated_normal([num_hidens, num_labels], stddev=0.1))
@@ -66,10 +72,17 @@ with graph.as_default():
     def model(data):
         conv = tf.nn.conv2d(data, layer1_weights, [1, 2, 2, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer1_biases)
+
         conv = tf.nn.conv2d(hidden, layer2_weights, [1, 2, 2, 1], padding='SAME')
         hidden = tf.nn.relu(conv + layer2_biases)
         shape = hidden.get_shape().as_list()
-        reshape = tf.reshape(hidden, [shape[0], shape[1]*shape[2]*shape[3]])
+        reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
+
+        # pooling replace convnet
+        # pooling = tf.nn.max_pool(value=hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="VALID")
+        # shape = pooling.get_shape().as_list()
+        # reshape = tf.reshape(pooling, [shape[0], shape[1]*shape[2]*shape[3]])
+
         hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
         return tf.matmul(hidden, layer4_weights) + layer4_biases
 
