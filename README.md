@@ -1,2 +1,2 @@
-# notMINIST
-notMINIST
+# MINIST
+MINIST
